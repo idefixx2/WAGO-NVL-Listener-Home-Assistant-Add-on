@@ -1,0 +1,56 @@
+
+---
+
+## wago_nvl_listener/config.json
+
+```json
+{
+  "name": "WAGO NVL Listener",
+  "version": "1.0.0",
+  "slug": "wago_nvl_listener",
+  "description": "Receives NVL-UDP packets from the WAGO 750-841 and publishes them to Home Assistant via MQTT.",
+  "arch": ["amd64", "armv7", "aarch64"],
+  "url": "https://github.com/idefixx2/wago-nvl-ha-addon",
+  "startup": "services",
+  "boot": "auto",
+  "ports": {
+    "1202/udp": 1202
+  },
+  "ingress": false,
+  "host_network": true,
+  "options": {
+    "mqtt_host": "core-mosquitto",
+    "mqtt_port": 1883,
+    "mqtt_user": "",
+    "mqtt_pass": "",
+    "endianness": "big",
+    "header_bytes": 16,
+    "qos": 0,
+    "retain": false,
+    "on_change": true,
+    "vars": [
+      {"name": "raumtemp_ist", "type": "REAL", "topic": "wago/raumtemp/ist", "scale": 1.0, "precision": 1},
+      {"name": "licht_status", "type": "BOOL", "topic": "wago/licht/status"}
+    ]
+  },
+  "schema": {
+    "mqtt_host": "str",
+    "mqtt_port": "int",
+    "mqtt_user": "str?",
+    "mqtt_pass": "str?",
+    "endianness": "list(big|little)",
+    "header_bytes": "int",
+    "qos": "int(0,2)",
+    "retain": "bool",
+    "on_change": "bool",
+    "vars": [
+      {
+        "name": "str",
+        "type": "list(BOOL|BYTE|WORD|INT|DINT|REAL|LREAL)",
+        "topic": "str",
+        "scale": "float?",
+        "precision": "int?"
+      }
+    ]
+  }
+}
