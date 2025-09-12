@@ -1,6 +1,6 @@
 {
   "name": "WAGO NVL Listener",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "slug": "wago_nvl_listener",
   "description": "Receives NVL-UDP packets from the WAGO 750-841 and publishes them to Home Assistant via MQTT.",
   "arch": ["amd64", "armv7", "aarch64"],
