@@ -4,7 +4,7 @@
   "slug": "wago_nvl_listener",
   "description": "Receives NVL-UDP packets from the WAGO 750-841 and publishes them to Home Assistant via MQTT.",
   "arch": ["amd64", "armv7", "aarch64"],
-  "url": "https://github.com/idefixx2/wago-nvl-ha-addon",
+  "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on",
   "startup": "services",
   "boot": "auto",
   "ports": {
@@ -48,4 +48,5 @@
     ]
   }
 }
+
 
