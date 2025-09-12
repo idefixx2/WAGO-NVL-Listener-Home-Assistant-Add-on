@@ -1,0 +1,8 @@
+# Erzwinge LF-Zeilenenden für Shell-Skripte, Dockerfiles und JSON
+*.sh         text eol=lf
+Dockerfile   text eol=lf
+*.json       text eol=lf
+
+# Optional: für YAML-Dateien (z. B. HA-Konfigurationen)
+*.yml        text eol=lf
+*.yaml       text eol=lf
