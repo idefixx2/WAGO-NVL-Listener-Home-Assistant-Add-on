@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
 echo "Starting WAGO NVL Listener..."
-exec python /app/listener.py
+exec python3 /app/listener.py
