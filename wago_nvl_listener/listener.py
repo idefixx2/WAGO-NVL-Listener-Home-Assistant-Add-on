@@ -10,7 +10,7 @@ MQTT_TOPIC = "wago/nvl"
 
 # Callback: Verbindung hergestellt
 def on_connect(client, userdata, flags, reason_code, properties=None):
-    print(f"Verbunden mit MQTT-Broker, Reason Code: {reason_code}")
+    print("Verbunden mit MQTT-Broker", reason_code)
     client.subscribe(MQTT_TOPIC)
 
 # Callback: Nachricht empfangen
@@ -25,7 +25,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
 # MQTT-Client mit neuer API-Version erstellen
-client = mqtt.Client(callback_api_version=2)
+client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.V2)
 
 client.on_connect = on_connect
 client.on_message = on_message
