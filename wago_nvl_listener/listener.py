@@ -3,7 +3,7 @@ import socket
 import paho.mqtt.client as mqtt
 
 # MQTT-Broker-Konfiguration
-MQTT_BROKER = "mqtt_broker_adresse"   # z. B. "192.168.1.10"
+MQTT_BROKER = "core-mosquitto"   # z. B. "192.168.1.10"
 MQTT_PORT = 1883
 MQTT_TOPIC = "wago/nvl"
 
