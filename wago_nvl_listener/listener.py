@@ -135,7 +135,7 @@ def validate_nvls(nvls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             vname = v.get("name")
             vtype = str(v.get("type", "")).upper()
             if not vname:
-                raise ValueError(f"NVL '{name}': variable without 'name'")
+                raise ValueError(f"NVL '{name}': variable ohne 'name'")
             if vtype not in TYPE_MAP:
                 raise ValueError(f"NVL '{name}': unsupported type '{vtype}' for var '{vname}'")
             v["type"] = vtype
@@ -155,12 +155,16 @@ def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=Non
 def on_disconnect(client: mqtt.Client, userdata, reason_code, properties=None):
     print(f"[MQTT] Disconnected from {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
 
+def on_log(client, userdata, level, buf):
+    print(f"[MQTT-LOG] {buf}")
+
 client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 if MQTT_USER:
     client.username_pw_set(MQTT_USER, MQTT_PASS)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
-print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} ...")
+client.on_log = on_log
+print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} as user '{MQTT_USER}' ...")
 client.connect(MQTT_HOST, MQTT_PORT, 60)
 client.loop_start()
 
