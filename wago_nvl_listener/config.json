@@ -1,14 +1,14 @@
 {
-  "name": "WAGO-NVL-Listener-Home-Assistant-Add-on",
-  "version": "1.1.2",
+  "name": "WAGO NVL Listener",
+  "version": "1.1.3",
   "slug": "wago_nvl_listener",
-  "description": "Empfängt WAGO NVL-Telegramme (mehrere COB-IDs) und publiziert sie typisiert nach MQTT",
-  "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on/",
+  "description": "Empfängt CODESYS NVL-Telegramme (mehrere COB-IDs) und publiziert sie typisiert nach MQTT",
+  "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on",
   "arch": ["amd64", "aarch64", "armv7", "armhf", "i386"],
   "startup": "services",
   "boot": "auto",
   "init": false,
-  "map": ["config", "share"],
+  "map": ["config"],
   "options": {
     "mqtt_host": "core-mosquitto",
     "mqtt_port": 1883,
@@ -21,33 +21,10 @@
     "endianness": "little",
     "header_bytes": 16,
     "nvl_port": 1202,
-    "cob_id_field": {
-      "offset": 0,
-      "size": 2,
-      "byteorder": "little"
-    },
-    "nvls": [
-      {
-        "name": "NVL_1",
-        "cob_id": 385,
-        "topic_prefix": "nvl1",
-        "header_bytes": 16,
-        "endianness": "little",
-        "vars": [
-          { "name": "Pressure", "type": "REAL", "scale": 1.0, "precision": 2 },
-          { "name": "Temp",     "type": "INT",  "scale": 0.1, "precision": 1 }
-        ]
-      },
-      {
-        "name": "NVL_2",
-        "cob_id": 386,
-        "topic_prefix": "nvl2",
-        "vars": [
-          { "name": "Status", "type": "BOOL" },
-          { "name": "Count",  "type": "DINT" }
-        ]
-      }
-    ]
+    "cob_id_offset": 0,
+    "cob_id_size": 2,
+    "cob_id_byteorder": "little",
+    "nvls_file": "/config/wago_nvl/nvls.json"
   },
   "schema": {
     "mqtt_host": "str",
@@ -61,29 +38,10 @@
     "endianness": "str",
     "header_bytes": "int",
     "nvl_port": "int",
-    "cob_id_field": {
-      "offset": "int",
-      "size": "int",
-      "byteorder": "str"
-    },
-    "nvls": [
-      {
-        "name": "str",
-        "cob_id": "int",
-        "topic_prefix?": "str",
-        "header_bytes?": "int",
-        "endianness?": "str",
-        "vars": [
-          {
-            "name": "str",
-            "type": "str",
-            "topic?": "str",
-            "scale?": "float",
-            "precision?": "int"
-          }
-        ]
-      }
-    ]
+    "cob_id_offset": "int",
+    "cob_id_size": "int",
+    "cob_id_byteorder": "str",
+    "nvls_file": "str"
   },
   "ports": {
     "1202/udp": 1202

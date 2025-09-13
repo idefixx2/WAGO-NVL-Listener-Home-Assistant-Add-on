@@ -1,7 +1,4 @@
 {
-  "name": "WAGO NVL Add-ons",
-  "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on",
-  "maintainer": "idefixx2"
+  "name": "WAGO NVL Listener Add-on",
+  "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on"
 }
-
-

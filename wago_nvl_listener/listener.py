@@ -3,6 +3,7 @@ import socket
 import struct
 import json
 import time
+import os
 from typing import Dict, Any, List, Optional, Tuple
 import paho.mqtt.client as mqtt
 
@@ -32,14 +33,13 @@ GLOBAL_HEADER_LEN = int(opts.get("header_bytes", 16))
 # UDP settings
 NVL_PORT          = int(opts.get("nvl_port", 1202))
 
-# COB-ID field extraction
-COB_FIELD         = opts.get("cob_id_field", {"offset": 0, "size": 2, "byteorder": "little"})
-COB_OFFSET        = int(COB_FIELD.get("offset", 0))
-COB_SIZE          = int(COB_FIELD.get("size", 2))
-COB_BYTEORDER     = COB_FIELD.get("byteorder", "little").lower()
+# COB-ID field extraction (primitive options)
+COB_OFFSET        = int(opts.get("cob_id_offset", 0))
+COB_SIZE          = int(opts.get("cob_id_size", 2))
+COB_BYTEORDER     = str(opts.get("cob_id_byteorder", "little")).lower()
 
-# NVL definitions
-NVLS: List[Dict[str, Any]] = opts.get("nvls", [])
+# NVL definitions file
+NVLS_FILE         = opts.get("nvls_file", "/config/wago_nvl/nvls.json")
 
 # ---------- Validation ----------
 def _validate_endianness(e: str) -> str:
@@ -50,7 +50,7 @@ def _validate_endianness(e: str) -> str:
 GLOBAL_ENDIANNESS = _validate_endianness(GLOBAL_ENDIANNESS)
 COB_BYTEORDER = _validate_endianness(COB_BYTEORDER)
 if COB_SIZE not in (1, 2, 4):
-    raise ValueError("cob_id_field.size must be 1, 2 or 4")
+    raise ValueError("cob_id_size must be 1, 2 or 4")
 
 # Supported data types: (struct code, size, to_python)
 TYPE_MAP: Dict[str, Tuple[str, int, Any]] = {
@@ -67,7 +67,48 @@ TYPE_MAP: Dict[str, Tuple[str, int, Any]] = {
     "LREAL": ("d", 8, float),
 }
 
-def _validate_nvls(nvls: List[Dict[str, Any]]) -> None:
+def fmt_end(prefix: str, endianness: str) -> str:
+    return (">" if endianness == "big" else "<") + prefix
+
+def decode_value(payload: bytes, offset: int, vtype: str, endianness: str) -> Tuple[Any, int]:
+    fmtcode, size, caster = TYPE_MAP[vtype]
+    if offset + size > len(payload):
+        raise ValueError("Packet too short for declared variables")
+    raw = struct.unpack(fmt_end(fmtcode, endianness), payload[offset:offset+size])[0]
+    return caster(raw), size
+
+def apply_scale_precision(val: Any, scale: float, precision: Optional[int]) -> Any:
+    if isinstance(val, (int, float)):
+        val = val * float(scale)
+        if precision is not None:
+            val = round(val, int(precision))
+    return val
+
+def extract_cob_id(payload: bytes) -> Optional[int]:
+    end = COB_OFFSET + COB_SIZE
+    if end > len(payload):
+        return None
+    chunk = payload[COB_OFFSET:end]
+    if COB_SIZE == 1:
+        return chunk[0]
+    return int.from_bytes(chunk, byteorder=COB_BYTEORDER, signed=False)
+
+def build_var_topic(nvl: Dict[str, Any], var: Dict[str, Any]) -> str:
+    if "topic" in var and var["topic"]:
+        return var["topic"]
+    return f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
+
+def load_nvls() -> List[Dict[str, Any]]:
+    # Prefer external file; fallback to embedded defaults if file missing
+    if NVLS_FILE and os.path.exists(NVLS_FILE):
+        with open(NVLS_FILE, "r") as f:
+            data = json.load(f)
+        nvls = data.get("nvls", [])
+    else:
+        nvls = opts.get("nvls", [])
+    return nvls
+
+def validate_nvls(nvls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen = set()
     for nvl in nvls:
         name = nvl.get("name")
@@ -98,56 +139,14 @@ def _validate_nvls(nvls: List[Dict[str, Any]]) -> None:
             if vtype not in TYPE_MAP:
                 raise ValueError(f"NVL '{name}': unsupported type '{vtype}' for var '{vname}'")
             v["type"] = vtype
-            # Defaults
             if "scale" not in v: v["scale"] = 1.0
             if "precision" in v and v["precision"] is not None:
                 v["precision"] = int(v["precision"])
+    return nvls
 
-_validate_nvls(NVLS)
-
-# Precompute lookup by cob_id
+NVLS = validate_nvls(load_nvls())
 NVL_BY_COB: Dict[int, Dict[str, Any]] = { int(n["cob_id"]): n for n in NVLS }
-
-# ---------- Helpers ----------
-def fmt_end(prefix: str, endianness: str) -> str:
-    return (">" if endianness == "big" else "<") + prefix
-
-def decode_value(payload: bytes, offset: int, vtype: str, endianness: str) -> Tuple[Any, int]:
-    fmtcode, size, caster = TYPE_MAP[vtype]
-    if offset + size > len(payload):
-        raise ValueError("Packet too short for declared variables")
-    raw = struct.unpack(fmt_end(fmtcode, endianness), payload[offset:offset+size])[0]
-    return caster(raw), size
-
-def apply_scale_precision(val: Any, scale: float, precision: Optional[int]) -> Any:
-    if isinstance(val, (int, float)):
-        val = val * float(scale)
-        if precision is not None:
-            val = round(val, int(precision))
-    return val
-
-def extract_cob_id(payload: bytes) -> Optional[int]:
-    end = COB_OFFSET + COB_SIZE
-    if end > len(payload):
-        return None
-    chunk = payload[COB_OFFSET:end]
-    if COB_SIZE == 1:
-        return chunk[0]
-    if COB_SIZE == 2:
-        return int.from_bytes(chunk, byteorder=COB_BYTEORDER, signed=False)
-    if COB_SIZE == 4:
-        return int.from_bytes(chunk, byteorder=COB_BYTEORDER, signed=False)
-    return None
-
-def build_var_topic(nvl: Dict[str, Any], var: Dict[str, Any]) -> str:
-    if "topic" in var and var["topic"]:
-        return var["topic"]
-    return f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
-
-# Track last published values per NVL (for on_change)
-last_values: Dict[int, List[Any]] = {
-    int(nvl["cob_id"]): [None] * len(nvl["vars"]) for nvl in NVLS
-}
+last_values: Dict[int, List[Any]] = { int(n["cob_id"]): [None] * len(n["vars"]) for n in NVLS }
 
 # ---------- MQTT (Paho v2) ----------
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
@@ -195,11 +194,9 @@ while True:
 
     nvl = NVL_BY_COB.get(int(cob_id))
     if not nvl:
-        # Unknown COB-ID: ignore silently, or log once in a while
         print(f"[NVL] Ignored packet with unknown COB-ID={cob_id} from {addr}")
         continue
 
-    # Apply NVL-specific decode settings or fall back to global
     header_len = int(nvl.get("header_bytes", GLOBAL_HEADER_LEN))
     endianness = nvl.get("endianness", GLOBAL_ENDIANNESS)
 
@@ -226,7 +223,7 @@ while True:
         if ON_CHANGE and lv[i] is not None and value == lv[i]:
             continue
         lv[i] = value
-        topic = build_var_topic(nvl, var)
+        topic = var.get("topic") or f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
         try:
             client.publish(topic, payload=value, qos=QOS, retain=RETAIN)
             print(f"[NVL] {nvl['name']}[{var['name']}]={value} → {topic}")
