@@ -123,17 +123,14 @@ def validate_nvls(nvls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if cob_id in seen:
             raise ValueError(f"Duplicate cob_id '{cob_id}' in NVLs")
         seen.add(cob_id)
-
         nvl_end = _validate_endianness(nvl.get("endianness", GLOBAL_ENDIANNESS).lower())
         nvl["endianness"] = nvl_end
         nvl["header_bytes"] = int(nvl.get("header_bytes", GLOBAL_HEADER_LEN))
         topic_prefix = nvl.get("topic_prefix", name)
         nvl["topic_prefix"] = topic_prefix
-
         vars_ = nvl.get("vars", [])
         if not isinstance(vars_, list) or not vars_:
             raise ValueError(f"NVL '{name}': 'vars' must be a non-empty list")
-
         for v in vars_:
             vname = v.get("name")
             vtype = str(v.get("type", "")).upper()
@@ -148,8 +145,8 @@ def validate_nvls(nvls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return nvls
 
 NVLS = validate_nvls(load_nvls())
-NVL_BY_COB: Dict[int, Dict[str, Any]] = { int(n["cob_id"]): n for n in NVLS }
-last_values: Dict[int, List[Any]] = { int(n["cob_id"]): [None] * len(n["vars"]) for n in NVLS }
+NVL_BY_COB: Dict[int, Dict[str, Any]] = {int(n["cob_id"]): n for n in NVLS}
+last_values: Dict[int, List[Any]] = {int(n["cob_id"]): [None] * len(n["vars"]) for n in NVLS}
 
 # ---------- MQTT (Paho v2) ----------
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
@@ -187,6 +184,8 @@ print(f"[NVL] NVLs loaded: {[ (n['name'], n['cob_id'], n['topic_prefix']) for n 
 while True:
     try:
         data, addr = sock.recvfrom(4096)
+        # Hex-Dump der ersten 32 Bytes
+        print(f"[NVL] Packet from {addr}, len={len(data)}, first bytes: {data[:32].hex(' ')}", flush=True)
     except socket.timeout:
         continue
     except Exception as e:
