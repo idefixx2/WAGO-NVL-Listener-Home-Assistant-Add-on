@@ -4,8 +4,12 @@ import struct
 import json
 import time
 import os
+import sys
 from typing import Dict, Any, List, Optional, Tuple
 import paho.mqtt.client as mqtt
+
+# stdout sofort flushen
+sys.stdout.reconfigure(line_buffering=True)
 
 OPTIONS_PATH = "/data/options.json"
 
@@ -99,7 +103,6 @@ def build_var_topic(nvl: Dict[str, Any], var: Dict[str, Any]) -> str:
     return f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
 
 def load_nvls() -> List[Dict[str, Any]]:
-    # Prefer external file; fallback to embedded defaults if file missing
     if NVLS_FILE and os.path.exists(NVLS_FILE):
         with open(NVLS_FILE, "r") as f:
             data = json.load(f)
@@ -150,13 +153,13 @@ last_values: Dict[int, List[Any]] = { int(n["cob_id"]): [None] * len(n["vars"]) 
 
 # ---------- MQTT (Paho v2) ----------
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
-    print(f"[MQTT] Connected to {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
+    print(f"[MQTT] Connected to {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}", flush=True)
 
 def on_disconnect(client: mqtt.Client, userdata, reason_code, properties=None):
-    print(f"[MQTT] Disconnected from {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
+    print(f"[MQTT] Disconnected from {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}", flush=True)
 
 def on_log(client, userdata, level, buf):
-    print(f"[MQTT-LOG] {buf}")
+    print(f"[MQTT-LOG] {buf}", flush=True)
 
 client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 if MQTT_USER:
@@ -164,8 +167,10 @@ if MQTT_USER:
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_log = on_log
-print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} as user '{MQTT_USER}' ...")
+print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} as user '{MQTT_USER}' ...", flush=True)
+print("[MQTT] Vor connect()", flush=True)
 client.connect(MQTT_HOST, MQTT_PORT, 60)
+print("[MQTT] Nach connect()", flush=True)
 client.loop_start()
 
 # ---------- UDP ----------
@@ -173,10 +178,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(("0.0.0.0", NVL_PORT))
 sock.settimeout(5.0)
 
-print(f"[NVL] Listening on UDP {NVL_PORT}")
-print(f"[NVL] COB field: offset={COB_OFFSET}, size={COB_SIZE}, byteorder={COB_BYTEORDER}")
-print(f"[NVL] Global header_bytes={GLOBAL_HEADER_LEN}, endianness={GLOBAL_ENDIANNESS}")
-print(f"[NVL] NVLs loaded: {[ (n['name'], n['cob_id'], n['topic_prefix']) for n in NVLS ]}")
+print(f"[NVL] Listening on UDP {NVL_PORT}", flush=True)
+print(f"[NVL] COB field: offset={COB_OFFSET}, size={COB_SIZE}, byteorder={COB_BYTEORDER}", flush=True)
+print(f"[NVL] Global header_bytes={GLOBAL_HEADER_LEN}, endianness={GLOBAL_ENDIANNESS}", flush=True)
+print(f"[NVL] NVLs loaded: {[ (n['name'], n['cob_id'], n['topic_prefix']) for n in NVLS ]}", flush=True)
 
 # ---------- Main loop ----------
 while True:
@@ -185,7 +190,7 @@ while True:
     except socket.timeout:
         continue
     except Exception as e:
-        print(f"[NVL] Socket error: {e}")
+        print(f"[NVL] Socket error: {e}", flush=True)
         time.sleep(1.0)
         continue
 
@@ -194,19 +199,19 @@ while True:
 
     cob_id = extract_cob_id(data)
     if cob_id is None:
-        print(f"[NVL] Packet too short for COB-ID extraction (len={len(data)})")
+        print(f"[NVL] Packet too short for COB-ID extraction (len={len(data)})", flush=True)
         continue
 
     nvl = NVL_BY_COB.get(int(cob_id))
     if not nvl:
-        print(f"[NVL] Ignored packet with unknown COB-ID={cob_id} from {addr}")
+        print(f"[NVL] Ignored packet with unknown COB-ID={cob_id} from {addr}", flush=True)
         continue
 
     header_len = int(nvl.get("header_bytes", GLOBAL_HEADER_LEN))
     endianness = nvl.get("endianness", GLOBAL_ENDIANNESS)
 
     if len(data) < header_len:
-        print(f"[NVL] Packet too short ({len(data)} bytes) for header_bytes={header_len}, COB-ID={cob_id}")
+        print(f"[NVL] Packet too short ({len(data)} bytes) for header_bytes={header_len}, COB-ID={cob_id}", flush=True)
         continue
 
     offset = header_len
@@ -218,7 +223,7 @@ while True:
             value = apply_scale_precision(value, var.get("scale", 1.0), var.get("precision", None))
             out_vals.append(value)
     except Exception as e:
-        print(f"[NVL] Decode error for COB-ID={cob_id} ({nvl['name']}): {e}")
+        print(f"[NVL] Decode error for COB-ID={cob_id} ({nvl['name']}): {e}", flush=True)
         continue
 
     # Publish per variable
@@ -231,6 +236,6 @@ while True:
         topic = var.get("topic") or f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
         try:
             client.publish(topic, payload=value, qos=QOS, retain=RETAIN)
-            print(f"[NVL] {nvl['name']}[{var['name']}]={value} → {topic}")
+            print(f"[NVL] {nvl['name']}[{var['name']}]={value} → {topic}", flush=True)
         except Exception as e:
-            print(f"[MQTT] Publish error: {e}")
+            print(f"[MQTT] Publish error: {e}", flush=True)

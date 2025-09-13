@@ -2,4 +2,4 @@
 set -euo pipefail
 
 echo "[NVL-ADDON] Starting..."
-exec python3 /app/listener.py
+exec python3 -u /app/listener.py
