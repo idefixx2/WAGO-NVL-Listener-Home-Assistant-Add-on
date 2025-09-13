@@ -148,18 +148,20 @@ NVLS = validate_nvls(load_nvls())
 NVL_BY_COB: Dict[int, Dict[str, Any]] = { int(n["cob_id"]): n for n in NVLS }
 last_values: Dict[int, List[Any]] = { int(n["cob_id"]): [None] * len(n["vars"]) for n in NVLS }
 
-# ---------- MQTT (Paho v2) ----------
+# ---------- MQTT ----------
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
-    print(f"[MQTT] Connected, reason_code={reason_code}")
+    print(f"[MQTT] Connected to {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
 
 def on_disconnect(client: mqtt.Client, userdata, reason_code, properties=None):
-    print(f"[MQTT] Disconnected, reason_code={reason_code}")
+    print(f"[MQTT] Disconnected from {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
 
-client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
+client = mqtt.Client()
 if MQTT_USER:
     client.username_pw_set(MQTT_USER, MQTT_PASS)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
+
+print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} ...")
 client.connect(MQTT_HOST, MQTT_PORT, 60)
 client.loop_start()
 
@@ -192,40 +194,3 @@ while True:
         print(f"[NVL] Packet too short for COB-ID extraction (len={len(data)})")
         continue
 
-    nvl = NVL_BY_COB.get(int(cob_id))
-    if not nvl:
-        print(f"[NVL] Ignored packet with unknown COB-ID={cob_id} from {addr}")
-        continue
-
-    header_len = int(nvl.get("header_bytes", GLOBAL_HEADER_LEN))
-    endianness = nvl.get("endianness", GLOBAL_ENDIANNESS)
-
-    if len(data) < header_len:
-        print(f"[NVL] Packet too short ({len(data)} bytes) for header_bytes={header_len}, COB-ID={cob_id}")
-        continue
-
-    offset = header_len
-    out_vals: List[Any] = []
-    try:
-        for var in nvl["vars"]:
-            value, size = decode_value(data, offset, var["type"], endianness)
-            offset += size
-            value = apply_scale_precision(value, var.get("scale", 1.0), var.get("precision", None))
-            out_vals.append(value)
-    except Exception as e:
-        print(f"[NVL] Decode error for COB-ID={cob_id} ({nvl['name']}): {e}")
-        continue
-
-    # Publish per variable
-    lv = last_values[int(cob_id)]
-    for i, var in enumerate(nvl["vars"]):
-        value = out_vals[i]
-        if ON_CHANGE and lv[i] is not None and value == lv[i]:
-            continue
-        lv[i] = value
-        topic = var.get("topic") or f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
-        try:
-            client.publish(topic, payload=value, qos=QOS, retain=RETAIN)
-            print(f"[NVL] {nvl['name']}[{var['name']}]={value} → {topic}")
-        except Exception as e:
-            print(f"[MQTT] Publish error: {e}")
