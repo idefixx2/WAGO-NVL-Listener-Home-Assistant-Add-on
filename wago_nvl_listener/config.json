@@ -1,7 +1,7 @@
 {
   "name": "WAGO-NVL-Listener-Home-Assistant-Add-on",
   "version": "1.1.2",
-  "slug": "WAGO-NVL-Listener-Home-Assistant-Add-on",
+  "slug": "wago_nvl_listener",
   "description": "Empfängt WAGO NVL-Telegramme (mehrere COB-IDs) und publiziert sie typisiert nach MQTT",
   "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on/",
   "arch": ["amd64", "aarch64", "armv7", "armhf", "i386"],
