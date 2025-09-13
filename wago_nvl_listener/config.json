@@ -1,52 +1,91 @@
 {
   "name": "WAGO NVL Listener",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "slug": "wago_nvl_listener",
-  "description": "Receives NVL-UDP packets from the WAGO 750-841 and publishes them to Home Assistant via MQTT.",
-  "arch": ["amd64", "armv7", "aarch64"],
+  "description": "Empfängt WAGO NVL-Telegramme (mehrere COB-IDs) und publiziert sie typisiert nach MQTT",
   "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on",
+  "arch": ["amd64", "aarch64", "armv7", "armhf", "i386"],
   "startup": "services",
   "boot": "auto",
-  "ports": {
-    "1202/udp": 1202
-  },
-  "ingress": false,
-  "host_network": true,
+  "init": false,
+  "map": ["config", "share"],
   "options": {
     "mqtt_host": "core-mosquitto",
     "mqtt_port": 1883,
-    "mqtt_user": "",
-    "mqtt_pass": "",
-    "endianness": "big",
-    "header_bytes": 16,
+    "mqtt_user": "mqttuser",
+    "mqtt_pass": "DEIN_PASSWORT",
+    "mqtt_topic_base": "wago/nvl",
     "qos": 0,
     "retain": false,
     "on_change": true,
-    "vars": [
-      {"name": "raumtemp_ist", "type": "REAL", "topic": "wago/raumtemp/ist", "scale": 1.0, "precision": 1},
-      {"name": "licht_status", "type": "BOOL", "topic": "wago/licht/status"}
+    "endianness": "little",
+    "header_bytes": 16,
+    "nvl_port": 1202,
+    "cob_id_field": {
+      "offset": 0,
+      "size": 2,
+      "byteorder": "little"
+    },
+    "nvls": [
+      {
+        "name": "NVL_1",
+        "cob_id": 385,
+        "topic_prefix": "nvl1",
+        "header_bytes": 16,
+        "endianness": "little",
+        "vars": [
+          { "name": "Pressure", "type": "REAL", "scale": 1.0, "precision": 2 },
+          { "name": "Temp",     "type": "INT",  "scale": 0.1, "precision": 1 }
+        ]
+      },
+      {
+        "name": "NVL_2",
+        "cob_id": 386,
+        "topic_prefix": "nvl2",
+        "vars": [
+          { "name": "Status", "type": "BOOL" },
+          { "name": "Count",  "type": "DINT" }
+        ]
+      }
     ]
   },
   "schema": {
     "mqtt_host": "str",
     "mqtt_port": "int",
-    "mqtt_user": "str?",
-    "mqtt_pass": "str?",
-    "endianness": "list(big|little)",
-    "header_bytes": "int",
-    "qos": "int(0,2)",
+    "mqtt_user": "str",
+    "mqtt_pass": "str",
+    "mqtt_topic_base": "str",
+    "qos": "int",
     "retain": "bool",
     "on_change": "bool",
-    "vars": [
+    "endianness": "str",
+    "header_bytes": "int",
+    "nvl_port": "int",
+    "cob_id_field": {
+      "offset": "int",
+      "size": "int",
+      "byteorder": "str"
+    },
+    "nvls": [
       {
         "name": "str",
-        "type": "list(BOOL|BYTE|WORD|INT|DINT|REAL|LREAL)",
-        "topic": "str",
-        "scale": "float?",
-        "precision": "int?"
+        "cob_id": "int",
+        "topic_prefix?": "str",
+        "header_bytes?": "int",
+        "endianness?": "str",
+        "vars": [
+          {
+            "name": "str",
+            "type": "str",
+            "topic?": "str",
+            "scale?": "float",
+            "precision?": "int"
+          }
+        ]
       }
     ]
+  },
+  "ports": {
+    "1202/udp": 1202
   }
 }
-
-
