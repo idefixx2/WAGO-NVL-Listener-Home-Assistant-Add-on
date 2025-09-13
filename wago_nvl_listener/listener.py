@@ -150,16 +150,17 @@ last_values: Dict[int, List[Any]] = { int(n["cob_id"]): [None] * len(n["vars"]) 
 
 # ---------- MQTT (Paho v2) ----------
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
-    print(f"[MQTT] Connected, reason_code={reason_code}")
+    print(f"[MQTT] Connected to {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
 
 def on_disconnect(client: mqtt.Client, userdata, reason_code, properties=None):
-    print(f"[MQTT] Disconnected, reason_code={reason_code}")
+    print(f"[MQTT] Disconnected from {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
 
 client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 if MQTT_USER:
     client.username_pw_set(MQTT_USER, MQTT_PASS)
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
+print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} ...")
 client.connect(MQTT_HOST, MQTT_PORT, 60)
 client.loop_start()
 
