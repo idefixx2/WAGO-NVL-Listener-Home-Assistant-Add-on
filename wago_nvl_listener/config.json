@@ -1,6 +1,6 @@
 {
   "name": "WAGO NVL Listener",
-  "version": "1.1.24",
+  "version": "1.1.25",
   "slug": "wago_nvl_listener",
   "description": "Empfängt CODESYS NVL-Telegramme (mehrere COB-IDs) und publiziert sie typisiert nach MQTT",
   "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on",
@@ -8,7 +8,6 @@
   "startup": "services",
   "boot": "auto",
   "init": false,
-  "network_mode": "host",
   "map": ["config"],
   "options": {
     "mqtt_host": "core-mosquitto",
