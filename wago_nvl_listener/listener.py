@@ -34,9 +34,6 @@ ON_CHANGE         = bool(opts.get("on_change", True))
 GLOBAL_ENDIANNESS = opts.get("endianness", "little").lower()
 GLOBAL_HEADER_LEN = int(opts.get("header_bytes", 16))
 
-# UDP settings
-NVL_PORT          = int(opts.get("nvl_port", 1202))
-
 # COB-ID field extraction (primitive options)
 COB_OFFSET        = int(opts.get("cob_id_offset", 0))
 COB_SIZE          = int(opts.get("cob_id_size", 2))
@@ -102,14 +99,19 @@ def build_var_topic(nvl: Dict[str, Any], var: Dict[str, Any]) -> str:
         return var["topic"]
     return f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
 
-def load_nvls() -> List[Dict[str, Any]]:
+# ---------- Load NVLs and Port ----------
+def load_nvls_and_port() -> Tuple[int, List[Dict[str, Any]]]:
+    """Lädt Port und NVL-Definitionen aus nvls.json."""
+    port = 1202
+    nvls = []
     if NVLS_FILE and os.path.exists(NVLS_FILE):
         with open(NVLS_FILE, "r") as f:
             data = json.load(f)
+        port = int(data.get("port", port))
         nvls = data.get("nvls", [])
     else:
         nvls = opts.get("nvls", [])
-    return nvls
+    return port, nvls
 
 def validate_nvls(nvls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     seen = set()
@@ -139,16 +141,19 @@ def validate_nvls(nvls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             if vtype not in TYPE_MAP:
                 raise ValueError(f"NVL '{name}': unsupported type '{vtype}' for var '{vname}'")
             v["type"] = vtype
-            if "scale" not in v: v["scale"] = 1.0
+            if "scale" not in v:
+                v["scale"] = 1.0
             if "precision" in v and v["precision"] is not None:
                 v["precision"] = int(v["precision"])
     return nvls
 
-NVLS = validate_nvls(load_nvls())
+# Laden von Port und NVLs
+NVL_PORT, NVLS = load_nvls_and_port()
+NVLS = validate_nvls(NVLS)
 NVL_BY_COB: Dict[int, Dict[str, Any]] = {int(n["cob_id"]): n for n in NVLS}
 last_values: Dict[int, List[Any]] = {int(n["cob_id"]): [None] * len(n["vars"]) for n in NVLS}
 
-# ---------- MQTT (Paho v2) ----------
+# ---------- MQTT ----------
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
     print(f"[MQTT] Connected to {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}", flush=True)
 
@@ -165,9 +170,7 @@ client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_log = on_log
 print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} as user '{MQTT_USER}' ...", flush=True)
-print("[MQTT] Vor connect()", flush=True)
 client.connect(MQTT_HOST, MQTT_PORT, 60)
-print("[MQTT] Nach connect()", flush=True)
 client.loop_start()
 
 # ---------- UDP ----------
@@ -175,7 +178,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(("0.0.0.0", NVL_PORT))
 sock.settimeout(5.0)
 
-print(f"[NVL] Listening on UDP {NVL_PORT}", flush=True)
+print(f"[NVL] Listening on UDP {NVL_PORT} (host network mode)", flush=True)
 print(f"[NVL] COB field: offset={COB_OFFSET}, size={COB_SIZE}, byteorder={COB_BYTEORDER}", flush=True)
 print(f"[NVL] Global header_bytes={GLOBAL_HEADER_LEN}, endianness={GLOBAL_ENDIANNESS}", flush=True)
 print(f"[NVL] NVLs loaded: {[ (n['name'], n['cob_id'], n['topic_prefix']) for n in NVLS ]}", flush=True)
