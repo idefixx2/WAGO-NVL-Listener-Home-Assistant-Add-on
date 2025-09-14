@@ -35,7 +35,7 @@ GLOBAL_ENDIANNESS = opts.get("endianness", "little").lower()
 GLOBAL_HEADER_LEN = int(opts.get("header_bytes", 16))
 
 # UDP settings
-NVL_PORT          = int(opts.get("nvl_port", 57066))
+NVL_PORT          = int(opts.get("nvl_port", 1202))
 
 # COB-ID field extraction (primitive options)
 COB_OFFSET        = int(opts.get("cob_id_offset", 0))
