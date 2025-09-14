@@ -30,12 +30,20 @@ QOS               = int(opts.get("qos", 0))
 RETAIN            = bool(opts.get("retain", False))
 ON_CHANGE         = bool(opts.get("on_change", True))
 
+# Logging
+LOG_LEVELS = {"ERROR": 0, "INFO": 1, "DEBUG": 2}
+LOG_LEVEL = LOG_LEVELS.get(str(opts.get("log_level", "INFO")).upper(), 1)
+
+def log(level: str, msg: str):
+    if LOG_LEVELS[level] <= LOG_LEVEL:
+        print(f"[{level}] {msg}", flush=True)
+
 # Global NVL defaults
 GLOBAL_ENDIANNESS = opts.get("endianness", "little").lower()
-GLOBAL_HEADER_LEN = int(opts.get("header_bytes", 16))
+GLOBAL_HEADER_LEN = int(opts.get("header_bytes", 20))  # default 20, Spec header is 20
 
-# COB-ID field extraction (primitive options)
-COB_OFFSET        = int(opts.get("cob_id_offset", 0))
+# COB-ID field extraction (primitive options, keep flexible)
+COB_OFFSET        = int(opts.get("cob_id_offset", 8))
 COB_SIZE          = int(opts.get("cob_id_size", 2))
 COB_BYTEORDER     = str(opts.get("cob_id_byteorder", "little")).lower()
 
@@ -85,15 +93,6 @@ def apply_scale_precision(val: Any, scale: float, precision: Optional[int]) -> A
             val = round(val, int(precision))
     return val
 
-def extract_cob_id(payload: bytes) -> Optional[int]:
-    end = COB_OFFSET + COB_SIZE
-    if end > len(payload):
-        return None
-    chunk = payload[COB_OFFSET:end]
-    if COB_SIZE == 1:
-        return chunk[0]
-    return int.from_bytes(chunk, byteorder=COB_BYTEORDER, signed=False)
-
 def build_var_topic(nvl: Dict[str, Any], var: Dict[str, Any]) -> str:
     if "topic" in var and var["topic"]:
         return var["topic"]
@@ -103,7 +102,7 @@ def build_var_topic(nvl: Dict[str, Any], var: Dict[str, Any]) -> str:
 def load_nvls_and_port() -> Tuple[int, List[Dict[str, Any]]]:
     """Lädt Port und NVL-Definitionen aus nvls.json."""
     port = 1202
-    nvls = []
+    nvls: List[Dict[str, Any]] = []
     if NVLS_FILE and os.path.exists(NVLS_FILE):
         with open(NVLS_FILE, "r") as f:
             data = json.load(f)
@@ -155,13 +154,13 @@ last_values: Dict[int, List[Any]] = {int(n["cob_id"]): [None] * len(n["vars"]) f
 
 # ---------- MQTT ----------
 def on_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
-    print(f"[MQTT] Connected to {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}", flush=True)
+    log("INFO", f"[MQTT] Connected to {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
 
 def on_disconnect(client: mqtt.Client, userdata, reason_code, properties=None):
-    print(f"[MQTT] Disconnected from {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}", flush=True)
+    log("INFO", f"[MQTT] Disconnected from {MQTT_HOST}:{MQTT_PORT}, reason_code={reason_code}")
 
 def on_log(client, userdata, level, buf):
-    print(f"[MQTT-LOG] {buf}", flush=True)
+    log("DEBUG", f"[MQTT-LOG] {buf}")
 
 client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 if MQTT_USER:
@@ -169,53 +168,159 @@ if MQTT_USER:
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_log = on_log
-print(f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} as user '{MQTT_USER}' ...", flush=True)
+log("INFO", f"[MQTT] Connecting to {MQTT_HOST}:{MQTT_PORT} as user '{MQTT_USER}' ...")
 client.connect(MQTT_HOST, MQTT_PORT, 60)
 client.loop_start()
 
 # ---------- UDP ----------
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+try:
+    # Größerer RX-Puffer für hohe Raten
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 262144)  # 256 KiB
+except Exception as e:
+    log("ERROR", f"SO_RCVBUF set failed: {e}")
+
 sock.bind(("0.0.0.0", NVL_PORT))
 sock.settimeout(5.0)
 
-print(f"[NVL] Listening on UDP {NVL_PORT} (host network mode)", flush=True)
-print(f"[NVL] COB field: offset={COB_OFFSET}, size={COB_SIZE}, byteorder={COB_BYTEORDER}", flush=True)
-print(f"[NVL] Global header_bytes={GLOBAL_HEADER_LEN}, endianness={GLOBAL_ENDIANNESS}", flush=True)
-print(f"[NVL] NVLs loaded: {[ (n['name'], n['cob_id'], n['topic_prefix']) for n in NVLS ]}", flush=True)
+log("INFO", f"[NVL] Listening on UDP {NVL_PORT} (host network mode)")
+log("INFO", f"[NVL] COB field: offset={COB_OFFSET}, size={COB_SIZE}, byteorder={COB_BYTEORDER}")
+log("DEBUG", f"[NVL] Global header_bytes={GLOBAL_HEADER_LEN}, endianness={GLOBAL_ENDIANNESS}")
+log("INFO", f"[NVL] NVLs loaded: {[ (n['name'], n['cob_id'], n['topic_prefix']) for n in NVLS ]}")
+
+# ---------- Spec constants (per PDF 2.4.1) ----------
+MIN_HEADER_LEN = 20
+IDENTITY = bytes((ord('0'), ord('_'), ord('S'), ord('3')))  # b"0_S3"
+
+def parse_header(data: bytes) -> Optional[Dict[str, int]]:
+    """Sanity checks + parse fixed header fields; returns dict or None on error."""
+    if len(data) < MIN_HEADER_LEN:
+        log("ERROR", f"Paket zu kurz: {len(data)} Bytes (< {MIN_HEADER_LEN})")
+        return None
+
+    if data[0:4] != IDENTITY:
+        # Nicht abbrechen, aber melden und weiter verarbeiten (manche Stacks können abweichen)
+        log("DEBUG", f"Unerwartete Identity: {data[0:4]!r}")
+
+    msg_type = int.from_bytes(data[4:8], byteorder="little", signed=False)
+    if msg_type != 0:
+        # SDO/Diagnose oder anderes – wir verarbeiten nur PDO (0)
+        log("DEBUG", f"Ignoriere Nicht-PDO msg_type={msg_type}")
+        return None
+
+    cob_idx = int.from_bytes(data[8:10], byteorder="little", signed=False)
+    sub_idx = int.from_bytes(data[10:12], byteorder="little", signed=False)
+    items   = int.from_bytes(data[12:14], byteorder="little", signed=False)
+    total   = int.from_bytes(data[14:16], byteorder="little", signed=False)
+    counter = int.from_bytes(data[16:18], byteorder="little", signed=False)
+    flags   = data[18]
+    chksum  = data[19]
+
+    if total < MIN_HEADER_LEN:
+        log("ERROR", f"Unplausible Length-Feld: {total}")
+        return None
+    if len(data) < total:
+        log("ERROR", f"Paket unvollständig: erwartet {total}, erhalten {len(data)}")
+        return None
+
+    return {
+        "cob_id": cob_idx,
+        "sub_index": sub_idx,
+        "items": items,
+        "total_len": total,
+        "counter": counter,
+        "flags": flags,
+        "checksum": chksum,
+    }
+
+def checksum_ok(data: bytes, total_len: int, flags: int, recv_checksum: int) -> bool:
+    """Wenn Flag 'Checksum prüfen' gesetzt ist (Bit1), verifiziere Checksum über Data-Bereich."""
+    check_requested = (flags & 0b00000010) != 0
+    if not check_requested:
+        return True
+    calc = sum(data[20:total_len]) & 0xFF
+    if calc != recv_checksum:
+        log("ERROR", f"Checksum-Fehler: recv={recv_checksum}, calc={calc}")
+        return False
+    return True
+
+def extract_cob_id_flexible(payload: bytes) -> Optional[int]:
+    """Weiterhin flexible COB-Extraktion (falls jemand anderes Offset nutzt)."""
+    end = COB_OFFSET + COB_SIZE
+    if end > len(payload):
+        return None
+    chunk = payload[COB_OFFSET:end]
+    if COB_SIZE == 1:
+        return chunk[0]
+    return int.from_bytes(chunk, byteorder=COB_BYTEORDER, signed=False)
 
 # ---------- Main loop ----------
 while True:
     try:
         data, addr = sock.recvfrom(4096)
-        # Hex-Dump der ersten 32 Bytes
-        print(f"[NVL] Packet from {addr}, len={len(data)}, first bytes: {data[:32].hex(' ')}", flush=True)
+        if LOG_LEVEL >= LOG_LEVELS["DEBUG"]:
+            log("DEBUG", f"[NVL] Packet from {addr}, len={len(data)}, first bytes: {data[:32].hex(' ')}")
     except socket.timeout:
         continue
     except Exception as e:
-        print(f"[NVL] Socket error: {e}", flush=True)
+        log("ERROR", f"[NVL] Socket error: {e}")
         time.sleep(1.0)
         continue
 
     if not data:
         continue
 
-    cob_id = extract_cob_id(data)
-    if cob_id is None:
-        print(f"[NVL] Packet too short for COB-ID extraction (len={len(data)})", flush=True)
+    # Header nach Spezifikation prüfen
+    hdr = parse_header(data)
+    if hdr is None:
         continue
+
+    # Checksumme prüfen (nur wenn angefordert)
+    if not checksum_ok(data, hdr["total_len"], hdr["flags"], hdr["checksum"]):
+        # Nur protokollieren, keine Werte aktualisieren
+        continue
+
+    # COB-ID bestimmen (präferiere Spec-Header, fallback auf flexiblen Weg)
+    cob_id = hdr["cob_id"]
+    if cob_id is None:
+        cob_id = extract_cob_id_flexible(data)
+        if cob_id is None:
+            log("ERROR", f"[NVL] COB-ID nicht extrahierbar (len={len(data)})")
+            continue
 
     nvl = NVL_BY_COB.get(int(cob_id))
     if not nvl:
-        print(f"[NVL] Ignored packet with unknown COB-ID={cob_id} from {addr}", flush=True)
+        # Unbekannte COB-ID ins eigenes Topic schreiben
+        topic = f"{MQTT_TOPIC_BASE}/unknown_cob/{int(cob_id)}"
+        payload = {
+            "len": len(data),
+            "counter": hdr["counter"],
+            "flags": hdr["flags"],
+            "checksum": hdr["checksum"],
+            "data_hex": data[:min(len(data), 256)].hex(),  # begrenze Größe
+            "from": f"{addr[0]}:{addr[1]}",
+        }
+        try:
+            client.publish(topic, payload=json.dumps(payload), qos=0, retain=False)
+            log("INFO", f"[NVL] Unbekannte COB-ID {cob_id} → {topic}")
+        except Exception as e:
+            log("ERROR", f"[MQTT] Publish unknown COB-ID error: {e}")
         continue
 
-    header_len = int(nvl.get("header_bytes", GLOBAL_HEADER_LEN))
+    # Datenbeginn (per NVL konfigurierbar), Spez-Header ist 20
+    header_len = max(20, int(nvl.get("header_bytes", GLOBAL_HEADER_LEN)))
     endianness = nvl.get("endianness", GLOBAL_ENDIANNESS)
 
     if len(data) < header_len:
-        print(f"[NVL] Packet too short ({len(data)} bytes) for header_bytes={header_len}, COB-ID={cob_id}", flush=True)
+        log("ERROR", f"[NVL] Packet too short ({len(data)} bytes) for header_bytes={header_len}, COB-ID={cob_id}")
         continue
 
+    # Optional: Plausibilitätscheck gegen Length-Feld
+    if hdr["total_len"] < header_len or len(data) < hdr["total_len"]:
+        log("ERROR", f"[NVL] Unplausible total_len={hdr['total_len']} vs header_len={header_len} or len={len(data)}")
+        continue
+
+    # Variablen dekodieren
     offset = header_len
     out_vals: List[Any] = []
     try:
@@ -225,19 +330,29 @@ while True:
             value = apply_scale_precision(value, var.get("scale", 1.0), var.get("precision", None))
             out_vals.append(value)
     except Exception as e:
-        print(f"[NVL] Decode error for COB-ID={cob_id} ({nvl['name']}): {e}", flush=True)
+        log("ERROR", f"[NVL] Decode error for COB-ID={cob_id} ({nvl['name']}): {e}")
         continue
 
-    # Publish per variable
+    # Publish per variable (on change optional) – JSON Payload mit Meta
     lv = last_values[int(cob_id)]
     for i, var in enumerate(nvl["vars"]):
         value = out_vals[i]
         if ON_CHANGE and lv[i] is not None and value == lv[i]:
             continue
         lv[i] = value
+
         topic = var.get("topic") or f"{MQTT_TOPIC_BASE}/{nvl['topic_prefix']}/{var['name']}"
+        payload = {
+            "value": value,
+        }
+        if "unit" in var:
+            payload["unit_of_measurement"] = var["unit"]
+        if "device_class" in var:
+            payload["device_class"] = var["device_class"]
+
+        retain_flag = bool(var.get("retain", RETAIN))  # pro-Variable override
         try:
-            client.publish(topic, payload=value, qos=QOS, retain=RETAIN)
-            print(f"[NVL] {nvl['name']}[{var['name']}]={value} → {topic}", flush=True)
+            client.publish(topic, payload=json.dumps(payload), qos=QOS, retain=retain_flag)
+            log("INFO", f"[NVL] {nvl['name']}[{var['name']}]={value} → {topic}")
         except Exception as e:
-            print(f"[MQTT] Publish error: {e}", flush=True)
+            log("ERROR", f"[MQTT] Publish error: {e}")

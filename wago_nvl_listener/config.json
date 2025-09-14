@@ -1,6 +1,6 @@
 {
   "name": "WAGO NVL Listener",
-  "version": "1.1.31",
+  "version": "1.1.32",
   "slug": "wago_nvl_listener",
   "description": "Empfängt CODESYS NVL-Telegramme (mehrere COB-IDs) und publiziert sie typisiert nach MQTT",
   "url": "https://github.com/idefixx2/WAGO-NVL-Listener-Home-Assistant-Add-on",
@@ -24,7 +24,8 @@
     "cob_id_offset": 8,
     "cob_id_size": 2,
     "cob_id_byteorder": "little",
-    "nvls_file": "/config/wago_nvl/nvls.json"
+    "nvls_file": "/config/wago_nvl/nvls.json",
+    "log_level": "INFO"
   },
   "schema": {
     "mqtt_host": "str",
@@ -40,6 +41,7 @@
     "cob_id_offset": "int",
     "cob_id_size": "int",
     "cob_id_byteorder": "str",
-    "nvls_file": "str"
+    "nvls_file": "str",
+    "log_level": "str"
   }
 }
