@@ -101,11 +101,8 @@ JSON:
 ```
 
 ## 📨 MQTT Publishing
-
-    Topic: <mqtt_topic_base>/<topic_prefix>/<var_name> unless overridden by topic in the variable definition.
-
-    Payload: JSON object containing:
-JSON:
+Topic: <mqtt_topic_base>/<topic_prefix>/<var_name> unless overridden by topic in the variable definition.
+Payload: JSON object containing:
 ```
 {
   "value": 23.5,
@@ -128,12 +125,16 @@ To have Home Assistant automatically create entities for your NVL variables:
 
 1. Enable MQTT Discovery in Home Assistant:
 YAML:
+```
 mqtt:
   discovery: true
   discovery_prefix: homeassistant
+```
 2. Modify the add-on to publish MQTT Discovery config topics for each variable. For example, for a temperature sensor:
 CODE:
+```
 homeassistant/sensor/nvl1_temp/config
+```
 with payload:
 JSON:
 ```
