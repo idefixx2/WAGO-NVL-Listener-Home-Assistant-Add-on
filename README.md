@@ -26,22 +26,23 @@ It supports multiple COB-IDs, per-variable scaling and precision, Home Assistant
 
 ## ⚙️ Configuration
 Add-on Options (config.json)
-Option	Type	Description
-mqtt_host	str	MQTT broker hostname (e.g. core-mosquitto)
-mqtt_port	int	MQTT broker port (default: 1883)
-mqtt_user	str	MQTT username
-mqtt_pass	str	MQTT password
-mqtt_topic_base	str	Base topic for all NVL values
-qos	int	MQTT QoS level (0, 1, or 2)
-retain	bool	Global retain flag (overridden by per-variable retain in nvls.json)
-on_change	bool	Publish only when value changes
-endianness	str	Default byte order: "little" or "big"
-header_bytes	int	Default header length in bytes
-cob_id_offset	int	Byte offset of COB-ID in packet
-cob_id_size	int	Size of COB-ID field in bytes
-cob_id_byteorder	str	Byte order of COB-ID field
-nvls_file	str	Path to nvls.json
-log_level	str	"DEBUG", "INFO", or "ERROR"
+|Option|Type|Description|
+|-------------|------------|----------|
+|mqtt_host|str|MQTT broker hostname (e.g. core-mosquitto)|
+|mqtt_port|int|MQTT broker port (default: 1883)|
+|mqtt_user|str|MQTT username|
+|mqtt_pass|str|MQTT password|
+|mqtt_topic_base|str|Base topic for all NVL values|
+|qos|int|MQTT QoS level (0, 1, or 2)|
+|retain|bool|Global retain flag (overridden by per-variable retain in nvls.json)|
+|on_change|bool|Publish only when value changes|
+|endianness|str|Default byte order: "little" or "big"|
+|header_bytes|int|Default header length in bytes|
+|cob_id_offset|int|Byte offset of COB-ID in packet|
+|cob_id_size|int|Size of COB-ID field in bytes|
+|cob_id_byteorder|str|Byte order of COB-ID field|
+|nvls_file|str|Path to nvls.json|
+|log_level|str|"DEBUG", "INFO", or "ERROR"|
 
 ## Log Levels
 
@@ -52,7 +53,7 @@ The log_level option controls verbosity:
 
 ## 📄 Data Formats
 Supported variable types and their decoding:
-Type	Struct Code	Size (bytes)	Python Cast
+|Type|Struct Code	Size (bytes)	Python Cast
 BOOL	"B"	1	lambda x: bool(x)
 SINT	"b"	1	int
 USINT	"B"	1	int
