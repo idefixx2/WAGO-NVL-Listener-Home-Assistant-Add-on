@@ -53,18 +53,18 @@ The log_level option controls verbosity:
 
 ## 📄 Data Formats
 Supported variable types and their decoding:
-|Type|Struct Code	Size (bytes)	Python Cast
-BOOL	"B"	1	lambda x: bool(x)
-SINT	"b"	1	int
-USINT	"B"	1	int
-BYTE	"B"	1	int
-INT	"h"	2	int
-UINT	"H"	2	int
-WORD	"H"	2	int
-DINT	"i"	4	int
-UDINT	"I"	4	int
-REAL	"f"	4	float
-LREAL	"d"	8	float
+|Type|Struct Code|Size (bytes)|Python Cast|
+|BOOL|"B"|1|lambda x: bool(x)|
+|SINT|"b"|1|int|
+|USINT|"B"|1|int|
+|BYTE|"B"|1|int|
+|INT|"h"|2|int|
+|UINT|"H"|2|int|
+|WORD|"H"|2|int|
+|DINT|"i"|4|int|
+|UDINT|"I"|4|int|
+|REAL|"f"|4|float|
+|LREAL|"d"|8|float|
 
 ## 📂 NVL Definition File (nvls.json)
 
