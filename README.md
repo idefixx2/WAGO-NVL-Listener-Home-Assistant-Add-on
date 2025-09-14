@@ -54,6 +54,7 @@ The log_level option controls verbosity:
 ## 📄 Data Formats
 Supported variable types and their decoding:
 |Type|Struct Code|Size (bytes)|Python Cast|
+|-----------|------------|------------|----------|
 |BOOL|"B"|1|lambda x: bool(x)|
 |SINT|"b"|1|int|
 |USINT|"B"|1|int|
