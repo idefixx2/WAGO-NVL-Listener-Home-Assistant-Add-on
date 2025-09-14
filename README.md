@@ -24,7 +24,7 @@ It supports multiple COB-IDs, per-variable scaling and precision, Home Assistant
 3. Place your nvls.json in /config/wago_nvl/nvls.json.
 4. Start the add-on and watch the logs.
 
-⚙️ Configuration
+## ⚙️ Configuration
 Add-on Options (config.json)
 Option	Type	Description
 mqtt_host	str	MQTT broker hostname (e.g. core-mosquitto)
@@ -43,14 +43,14 @@ cob_id_byteorder	str	Byte order of COB-ID field
 nvls_file	str	Path to nvls.json
 log_level	str	"DEBUG", "INFO", or "ERROR"
 
-🪵 Log Levels
+## Log Levels
 
 The log_level option controls verbosity:
 * DEBUG – Full packet dumps, detailed parsing info, MQTT logs.
 * INFO – Connection status, value updates, unknown COB-ID notices.
 * ERROR – Only errors (socket issues, checksum failures, decode errors).
 
-📄 Data Formats
+## 📄 Data Formats
 Supported variable types and their decoding:
 Type	Struct Code	Size (bytes)	Python Cast
 BOOL	"B"	1	lambda x: bool(x)
@@ -65,7 +65,7 @@ UDINT	"I"	4	int
 REAL	"f"	4	float
 LREAL	"d"	8	float
 
-📂 NVL Definition File (nvls.json)
+## 📂 NVL Definition File (nvls.json)
 
 This file defines the UDP port to listen on and the NVLs to decode.
 Example:
@@ -100,7 +100,7 @@ JSON:
 }
 ```
 
-📨 MQTT Publishing
+## 📨 MQTT Publishing
 
     Topic: <mqtt_topic_base>/<topic_prefix>/<var_name> unless overridden by topic in the variable definition.
 
@@ -122,7 +122,7 @@ JSON:
 * Checksum validation (if requested by packet flags) before updating MQTT.
 * Socket receive buffer increased for high packet rates.
 
-🔍 Home Assistant MQTT Discovery
+## 🔍 Home Assistant MQTT Discovery
 
 To have Home Assistant automatically create entities for your NVL variables:
 
@@ -149,7 +149,7 @@ JSON:
 With this in place, all NVL variables with proper unit and device_class will appear automatically in Home Assistant without manual entity configuration.
 ```
 
-📌 Notes
+## 📌 Notes
 * on_change in config.json is global and still active — there is no per-variable override.
 * retain in config.json is a fallback; per-variable retain in nvls.json takes precedence.
 * Use log_level: "DEBUG" during setup/troubleshooting, then switch to "INFO" or "ERROR" for normal operation.
