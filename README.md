@@ -46,12 +46,9 @@ log_level	str	"DEBUG", "INFO", or "ERROR"
 🪵 Log Levels
 
 The log_level option controls verbosity:
-
-    DEBUG – Full packet dumps, detailed parsing info, MQTT logs.
-
-    INFO – Connection status, value updates, unknown COB-ID notices.
-
-    ERROR – Only errors (socket issues, checksum failures, decode errors).
+* DEBUG – Full packet dumps, detailed parsing info, MQTT logs.
+* INFO – Connection status, value updates, unknown COB-ID notices.
+* ERROR – Only errors (socket issues, checksum failures, decode errors).
 
 📄 Data Formats
 Supported variable types and their decoding:
@@ -73,6 +70,7 @@ LREAL	"d"	8	float
 This file defines the UDP port to listen on and the NVLs to decode.
 Example:
 JSON:
+```
 {
   "port": 1202,
   "nvls": [
@@ -100,6 +98,7 @@ JSON:
     }
   ]
 }
+```
 
 📨 MQTT Publishing
 
@@ -107,11 +106,13 @@ JSON:
 
     Payload: JSON object containing:
 JSON:
+```
 {
   "value": 23.5,
   "unit_of_measurement": "°C",
   "device_class": "temperature"
 }
+```
 
 * Retain: Taken from the variable’s retain field; falls back to global retain if not set.
 * Unknown COB-IDs: Published to <mqtt_topic_base>/unknown_cob/<cob_id> with raw packet data.
@@ -135,6 +136,7 @@ CODE:
 homeassistant/sensor/nvl1_temp/config
 with payload:
 JSON:
+```
 {
   "name": "NVL1 Temperature",
   "state_topic": "wago/nvl/nvl1/Temp",
@@ -145,6 +147,7 @@ JSON:
 }
 3. Restart the add-on or trigger a discovery refresh in Home Assistant.
 With this in place, all NVL variables with proper unit and device_class will appear automatically in Home Assistant without manual entity configuration.
+```
 
 📌 Notes
 * on_change in config.json is global and still active — there is no per-variable override.
